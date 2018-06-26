@@ -1,0 +1,10 @@
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile project(':kafkaload-api')
+    compile project(':kafkaload-producer')
+    compile project(':kafkaload-consumer')
+    compile project(':kafkaload-kafkametrics')
+}

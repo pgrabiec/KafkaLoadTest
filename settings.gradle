@@ -1,0 +1,7 @@
+include 'kafkaload-api'
+include 'kafkaload-producer'
+include 'kafkaload-consumer'
+include 'kafkaload-kafkametrics'
+include 'kafkaload-dispatcher'
+
+rootProject.name = 'kafkaload'
