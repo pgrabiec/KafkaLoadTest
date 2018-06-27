@@ -1,5 +1,9 @@
 package pl.edu.agh.kafkaload.kafkametrics;
 
+import com.opencsv.bean.StatefulBeanToCsv;
+import com.opencsv.bean.StatefulBeanToCsvBuilder;
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import com.yammer.metrics.reporting.JmxReporter;
 
 import javax.management.JMX;
@@ -8,6 +12,7 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
+import java.io.BufferedWriter;
 import java.io.IOException;
 
 import com.opencsv.CSVReader;
@@ -15,15 +20,24 @@ import com.opencsv.CSVWriter;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class KafkaMetrics implements Runnable {
     @Override
     public void run() {
 
         //file with metrics
-        String file = "data.csv";
+        String file = "src/main/java/pl.edu.agh.kafkaload.kafkametrics/data.csv";
+        Path myPath = Paths.get(file);
+
         //columns in csv file
-        String[] entries = { "TIME", "Metric1", "Metric2", "Metric3" };
+        List<MetricsParam> params= new ArrayList<>();
 
         JMXConnector jmxc = null;
         try {
@@ -46,9 +60,16 @@ public class KafkaMetrics implements Runnable {
 //            kafka.network:type=RequestMetrics,name=RequestQueueTimeMs,request=Produce
 
             while (true) {
-                System.out.println("Purgatory = " + purgatorySizeProxy.getValue());
+
+             /*   int time = 0;
+                int m1 = (int)purgatorySizeProxy.getValue();
+                int m2 = (int)(long)messageRateProxy.getCount();
+                int m3 = 3;
+             */
+                params.add(new MetricsParam(0,(int)(long)messageRateProxy.getCount(),(int)purgatorySizeProxy.getValue(),3));
+                //System.out.println("Purgatory = " + purgatorySizeProxy.getValue());
                 //System.out.println("Conversion = " + messageConversionProxy.getValue());
-                System.out.println("Load = " + messageRateProxy.getCount());
+                //System.out.println("Load = " + messageRateProxy.getCount());
                 Thread.sleep(300);
             }
         } catch (Exception e) {
@@ -62,16 +83,22 @@ public class KafkaMetrics implements Runnable {
             }
         }
 
-    /*    try (FileOutputStream fos = new FileOutputStream(file);
-             OutputStreamWriter osw = new OutputStreamWriter(fos,
-                     StandardCharsets.UTF_8);
-             CSVWriter writer = new CSVWriter(osw)) {
+        try (BufferedWriter writer = Files.newBufferedWriter(myPath,
+                StandardCharsets.UTF_8)) {
 
-            writer.writeNext(entries);
+            StatefulBeanToCsv<MetricsParam> beanToCsv = new StatefulBeanToCsvBuilder(writer)
+                    .withQuotechar(CSVWriter.NO_QUOTE_CHARACTER)
+                    .build();
+
+            beanToCsv.write(params);
+
+        } catch (CsvDataTypeMismatchException | CsvRequiredFieldEmptyException |
+                IOException ex) {
+            Logger.getLogger(KafkaMetrics.class.getName()).log(
+                    Level.SEVERE, ex.getMessage(), ex);
         }
-        catch (Exception e) {
-            e.printStackTrace();
-       } */
+
+
     }
 
 }

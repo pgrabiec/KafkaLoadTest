@@ -1,6 +1,8 @@
 package pl.edu.agh.kafkaload.kafkametrics;
 
+
 public class MetricsParam {
+
 
     private int time;
     private int m1;
@@ -16,11 +18,6 @@ public class MetricsParam {
 
     public MetricsParam(int time){
         this.time = time;
-    }
-
-    public String toString(String separator) {
-        return getTime() + separator + getMetric1() + separator +
-                getMetric2() + separator + getMetric3();
     }
 
 
@@ -52,6 +49,15 @@ public class MetricsParam {
 
     public void setMetric3(int m3) {
         this.m3 = m3;
+    }
+
+    public String toString() {
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("Metric{time=").append(time).append(", m1=")
+                .append(m1).append(", m2=").append(m2).append(", m3=").append(m3).append("}");
+
+        return builder.toString();
     }
 
 
