@@ -76,7 +76,7 @@ public class KafkaMetrics implements Runnable {
 
                 writer.write(String.join(
                         " ",
-                        Long.toString(System.currentTimeMillis() - startTime),
+                        Double.toString((double) (System.currentTimeMillis() - startTime) / 1000.0),
                         Long.toString(Math.round(megabytesInPerSec)),
                         Objects.toString(queueSizeProxy.getValue()),
                         Long.toString(Math.round(megabytesOutPerSec))
