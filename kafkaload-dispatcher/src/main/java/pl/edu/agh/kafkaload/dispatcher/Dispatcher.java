@@ -39,12 +39,15 @@ public class Dispatcher {
             threads.add(producer);
         }
 
-        Thread consumer = new Thread(new Consumer(
-                new ConsumerProperties(servers),
-                Collections.emptyList()
-        ));
-        consumer.start();
-        threads.add(consumer);
+        int consumers = 3;
+        for (int i = 0; i < consumers; i++) {
+            Thread consumer = new Thread(new Consumer(
+                    new ConsumerProperties(servers),
+                    Collections.emptyList()
+            ));
+            consumer.start();
+            threads.add(consumer);
+        }
 
         new Thread(new KafkaMetrics(new FileWriter("./data.csv"), finished)).start();
 

@@ -64,22 +64,22 @@ public class KafkaMetrics implements Runnable {
 
                 bytesIn = bytesInProxy.getCount();
                 bytesInTime = System.currentTimeMillis();
-                double bytesInPerSec = (bytesIn - lastBytesIn) / ((bytesInTime - lastBytesInTime) / 1000.0);
+                double megabytesInPerSec = ((bytesIn - lastBytesIn) / ((bytesInTime - lastBytesInTime) / 1000.0))  / (1024.0 * 1024.0);
                 lastBytesIn = bytesIn;
                 lastBytesInTime = bytesInTime;
 
                 bytesOut = bytesOutProxy.getCount();
                 bytesOutTime = System.currentTimeMillis();
-                double bytesOutPerSec = (bytesOut - lastBytesOut) / ((bytesOutTime - lastBytesOutTime) / 1000.0);
+                double megabytesOutPerSec = ((bytesOut - lastBytesOut) / ((bytesOutTime - lastBytesOutTime) / 1000.0)) / (1024.0 * 1024.0);
                 lastBytesOut = bytesOut;
                 lastBytesOutTime = bytesOutTime;
 
                 writer.write(String.join(
                         " ",
                         Long.toString(System.currentTimeMillis() - startTime),
-                        Long.toString(Math.round(bytesInPerSec)),
+                        Long.toString(Math.round(megabytesInPerSec)),
                         Objects.toString(queueSizeProxy.getValue()),
-                        Long.toString(Math.round(bytesOutPerSec))
+                        Long.toString(Math.round(megabytesOutPerSec))
                 ));
                 writer.write('\n');
                 writer.flush();
