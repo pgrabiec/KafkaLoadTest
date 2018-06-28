@@ -10,32 +10,52 @@ import pl.edu.agh.kafkaload.producer.throttle.RateProvider;
 import pl.edu.agh.kafkaload.producer.throttle.linear.LinearRateFactory;
 
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Dispatcher {
+    private static final AtomicBoolean finished = new AtomicBoolean(false);
 
     public static void main(String[] args) throws IOException {
         String servers = "localhost:9092";
+
+        List<Thread> threads = new LinkedList<>();
 
         List<RateProvider> rateProviders = new LinearRateFactory().createProviders(
                 new FileReader("load.csv")
         );
         for (RateProvider rateProvider : rateProviders) {
             System.out.println("Starting producer");
-            new Thread(new Producer(
+            Thread producer = new Thread(new Producer(
                     new ProducerProperties(servers),
                     new String(new byte[rateProvider.messageSize()]),
                     new DefaultLoadThrottle(rateProvider))
-            ).start();
+            );
+            producer.start();
+            threads.add(producer);
         }
 
-        new Thread(new Consumer(
+        Thread consumer = new Thread(new Consumer(
                 new ConsumerProperties(servers),
                 Collections.emptyList()
-        )).start();
+        ));
+        consumer.start();
+        threads.add(consumer);
 
-        new Thread(new KafkaMetrics()).start();
+        new Thread(new KafkaMetrics(new FileWriter("./data.csv"), finished)).start();
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(30000);
+                finished.set(true);
+                threads.forEach(Thread::interrupt);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 }
