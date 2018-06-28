@@ -37,7 +37,7 @@ public class Consumer implements Runnable {
         while (true) {
             ConsumerRecords<String, String> records = consumer.poll(1000);
             if (!records.isEmpty()) {
-                listeners.forEach(listener -> listener.update(records.count(), TimingUtil.getTimestamp()));
+                listeners.forEach(listener -> listener.update(records.count(), TimingUtil.getNanoTimestamp()));
             }
         }
     }

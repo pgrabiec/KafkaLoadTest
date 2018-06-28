@@ -4,7 +4,11 @@ public class TimingUtil {
     private TimingUtil() {
     }
 
-    public static long getTimestamp() {
+    public static long getNanoTimestamp() {
         return System.nanoTime();
+    }
+
+    public static long nanoSince(long timestammp) {
+        return getNanoTimestamp() - timestammp;
     }
 }
