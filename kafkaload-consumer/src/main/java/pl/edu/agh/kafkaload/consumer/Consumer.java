@@ -28,14 +28,14 @@ public class Consumer implements Runnable {
     public void run() {
         Properties props = properties.getProperties();
 
-        long timeout = 1000;
+        long timeout = 0;
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
 
         consumer.subscribe(Collections.singletonList(topic));
 
         while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(1000);
+            ConsumerRecords<String, String> records = consumer.poll(timeout);
             if (!records.isEmpty()) {
                 listeners.forEach(listener -> listener.update(records.count(), TimingUtil.getTimestamp()));
             }

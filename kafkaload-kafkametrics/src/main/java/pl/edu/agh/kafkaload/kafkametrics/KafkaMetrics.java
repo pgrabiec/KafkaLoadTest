@@ -1,9 +1,5 @@
 package pl.edu.agh.kafkaload.kafkametrics;
 
-import com.opencsv.bean.StatefulBeanToCsv;
-import com.opencsv.bean.StatefulBeanToCsvBuilder;
-import com.opencsv.exceptions.CsvDataTypeMismatchException;
-import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import com.yammer.metrics.reporting.JmxReporter;
 
 import javax.management.JMX;
@@ -12,32 +8,26 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-import java.io.BufferedWriter;
 import java.io.IOException;
-
-import com.opencsv.CSVReader;
-import com.opencsv.CSVWriter;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KafkaMetrics implements Runnable {
+    private final Writer writer;
+    private final AtomicBoolean finished;
+
+    public KafkaMetrics(Writer writer, AtomicBoolean finished) {
+        this.writer = writer;
+        this.finished = finished;
+    }
+
     @Override
     public void run() {
-
-        //file with metrics
-        String file = "src/main/java/pl.edu.agh.kafkaload.kafkametrics/data.csv";
-        Path myPath = Paths.get(file);
-
         //columns in csv file
-        List<MetricsParam> params= new ArrayList<>();
+//        List<MetricsParam> params = new ArrayList<>();
 
         JMXConnector jmxc = null;
         try {
@@ -47,30 +37,52 @@ public class KafkaMetrics implements Runnable {
 
             MBeanServerConnection mbsc = jmxc.getMBeanServerConnection();
 
-            ObjectName messageRate = new ObjectName("kafka.server:type=BrokerTopicMetrics,name=TotalProduceRequestsPerSec");
-            JmxReporter.MeterMBean messageRateProxy = JMX.newMBeanProxy(mbsc, messageRate, JmxReporter.MeterMBean.class, true);
+            // Init proxies for metrics
+            ObjectName bytesInName = new ObjectName("kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec");
+            JmxReporter.MeterMBean bytesInProxy = JMX.newMBeanProxy(mbsc, bytesInName, JmxReporter.MeterMBean.class, true);
 
-            //metric for message conversion time
-            //ObjectName messageConversion = new ObjectName("kafka.network:type=RequestMetrics,name=MessageConversionsTimeMs,request={Produce|Fetch}");
-            //JmxReporter.GaugeMBean messageConversionProxy = JMX.newMBeanProxy(mbsc, messageConversion, JmxReporter.GaugeMBean.class, true);
+            ObjectName queueSizeName = new ObjectName("kafka.network:type=RequestChannel,name=RequestQueueSize");
+            JmxReporter.GaugeMBean queueSizeProxy = JMX.newMBeanProxy(mbsc, queueSizeName, JmxReporter.GaugeMBean.class, true);
 
-            ObjectName purgatorySize = new ObjectName("kafka.server:type=DelayedOperationPurgatory,name=NumDelayedOperations,delayedOperation=Produce");
-            JmxReporter.GaugeMBean purgatorySizeProxy = JMX.newMBeanProxy(mbsc, purgatorySize, JmxReporter.GaugeMBean.class, true);
+            ObjectName bytesOutName = new ObjectName("kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec");
+            JmxReporter.MeterMBean bytesOutProxy = JMX.newMBeanProxy(mbsc, bytesOutName, JmxReporter.MeterMBean.class, true);
 
-//            kafka.network:type=RequestMetrics,name=RequestQueueTimeMs,request=Produce
+            long lastBytesIn = bytesInProxy.getCount();
+            long bytesIn;
+            long lastBytesInTime = System.currentTimeMillis();
+            long bytesInTime;
 
-            while (true) {
+            long lastBytesOut = bytesOutProxy.getCount();
+            long bytesOut;
+            long lastBytesOutTime = System.currentTimeMillis();
+            long bytesOutTime;
 
-             /*   int time = 0;
-                int m1 = (int)purgatorySizeProxy.getValue();
-                int m2 = (int)(long)messageRateProxy.getCount();
-                int m3 = 3;
-             */
-                params.add(new MetricsParam(0,(int)(long)messageRateProxy.getCount(),(int)purgatorySizeProxy.getValue(),3));
-                //System.out.println("Purgatory = " + purgatorySizeProxy.getValue());
-                //System.out.println("Conversion = " + messageConversionProxy.getValue());
-                //System.out.println("Load = " + messageRateProxy.getCount());
-                Thread.sleep(300);
+            long startTime = System.currentTimeMillis();
+
+            while (!finished.get()) {
+                Thread.sleep(50);
+
+                bytesIn = bytesInProxy.getCount();
+                bytesInTime = System.currentTimeMillis();
+                double bytesInPerSec = (bytesIn - lastBytesIn) / ((bytesInTime - lastBytesInTime) / 1000.0);
+                lastBytesIn = bytesIn;
+                lastBytesInTime = bytesInTime;
+
+                bytesOut = bytesOutProxy.getCount();
+                bytesOutTime = System.currentTimeMillis();
+                double bytesOutPerSec = (bytesOut - lastBytesOut) / ((bytesOutTime - lastBytesOutTime) / 1000.0);
+                lastBytesOut = bytesOut;
+                lastBytesOutTime = bytesOutTime;
+
+                writer.write(String.join(
+                        " ",
+                        Long.toString(System.currentTimeMillis() - startTime),
+                        Long.toString(Math.round(bytesInPerSec)),
+                        Objects.toString(queueSizeProxy.getValue()),
+                        Long.toString(Math.round(bytesOutPerSec))
+                ));
+                writer.write('\n');
+                writer.flush();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -83,22 +95,23 @@ public class KafkaMetrics implements Runnable {
             }
         }
 
-        try (BufferedWriter writer = Files.newBufferedWriter(myPath,
-                StandardCharsets.UTF_8)) {
-
-            StatefulBeanToCsv<MetricsParam> beanToCsv = new StatefulBeanToCsvBuilder(writer)
-                    .withQuotechar(CSVWriter.NO_QUOTE_CHARACTER)
-                    .build();
-
-            beanToCsv.write(params);
-
-        } catch (CsvDataTypeMismatchException | CsvRequiredFieldEmptyException |
-                IOException ex) {
-            Logger.getLogger(KafkaMetrics.class.getName()).log(
-                    Level.SEVERE, ex.getMessage(), ex);
+//        try {
+//            new StatefulBeanToCsvBuilder(writer)
+//                    .withSeparator(' ')
+//                    .withQuotechar(CSVWriter.NO_QUOTE_CHARACTER)
+//                    .build()
+//                    .write(params);
+//            writer.flush();
+//        } catch (IOException | CsvRequiredFieldEmptyException | CsvDataTypeMismatchException e) {
+//            e.printStackTrace();
+//        }
+        try {
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
-
+        System.out.println("Finished");
     }
 
 }
