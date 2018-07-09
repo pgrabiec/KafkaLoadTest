@@ -14,12 +14,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KafkaMetrics implements Runnable {
     private final List<MetricsListener> listeners;
     private final long resolutionMilliseconds;
-    private final AtomicBoolean proceed = new AtomicBoolean(true);
 
     public KafkaMetrics(List<MetricsListener> listeners, long resolutionMilliseconds) {
         this.listeners = listeners;
@@ -88,7 +86,7 @@ public class KafkaMetrics implements Runnable {
 
             long startTime = TimingUtil.getMillis();
             long iteration = 1;
-            while (proceed.get()) {
+            while (true) {
                 long currentTime = TimingUtil.getMillis();
                 long toWait = iteration * resolutionMilliseconds - (currentTime - startTime);
                 if (toWait > 0) {
@@ -111,6 +109,8 @@ public class KafkaMetrics implements Runnable {
             }
 
 
+        } catch (InterruptedException ex) {
+            // Ignore
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -124,9 +124,5 @@ public class KafkaMetrics implements Runnable {
         }
 
         System.out.println("Metrics finished");
-    }
-
-    public void stop() {
-        proceed.set(false);
     }
 }

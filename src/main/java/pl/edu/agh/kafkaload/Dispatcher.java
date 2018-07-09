@@ -6,6 +6,7 @@ import pl.edu.agh.kafkaload.configuration.TestConfiguration;
 import pl.edu.agh.kafkaload.consumer.Consumer;
 import pl.edu.agh.kafkaload.consumer.ConsumerProperties;
 import pl.edu.agh.kafkaload.kafkametrics.KafkaMetrics;
+import pl.edu.agh.kafkaload.kafkametrics.listeners.ChartMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.ConsolePrintMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.CsvSaveMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.providers.Unit;
@@ -42,7 +43,8 @@ public class Dispatcher {
         KafkaMetrics kafkaMetrics = new KafkaMetrics(
                 Arrays.asList(
                         new ConsolePrintMetricsListener(),
-                        new CsvSaveMetricsListener(outputFile, " ")
+                        new CsvSaveMetricsListener(outputFile, " "),
+                        new ChartMetricsListener()
                 ),
                 conf.getResolution()
         );
@@ -63,6 +65,7 @@ public class Dispatcher {
         ThreadsManager consumers = new ThreadsManager(executor);
 
         Timer timer = new Timer();
+        long lastTime = Long.MIN_VALUE;
         for (ConfigurationChange change : changes) {
             long millisOffset = Math.round(change.getSecond() * Unit.getScaleFactor(Unit.SECOND, Unit.MILLISECOND));
             if (millisOffset >= 0) {
@@ -76,10 +79,20 @@ public class Dispatcher {
                         },
                         new Date(time)
                 );
+                if (time > lastTime) {
+                    lastTime = time;
+                }
             }
-
-
         }
+        timer.schedule(
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        executor.shutdownNow();
+                    }
+                },
+                new Date(lastTime + 500)
+        );
     }
 
     private static void adjustWorkers(

@@ -30,7 +30,7 @@ public class Consumer implements Runnable {
                 consumer.poll(consumerPollTimeout);
             }
         } catch (Exception ex) {
-            System.out.println("Consumer finished: " + ex.getClass().getSimpleName());
+            System.out.println("Consumer exit: " + ex.getClass().getSimpleName());
         }
     }
 }
