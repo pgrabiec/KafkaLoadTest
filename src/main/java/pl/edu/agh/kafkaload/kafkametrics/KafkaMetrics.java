@@ -1,8 +1,6 @@
 package pl.edu.agh.kafkaload.kafkametrics;
 
-import pl.edu.agh.kafkaload.kafkametrics.providers.RateMetricProvider;
-import pl.edu.agh.kafkaload.kafkametrics.providers.SingleValueMetricProvider;
-import pl.edu.agh.kafkaload.kafkametrics.providers.Unit;
+import pl.edu.agh.kafkaload.kafkametrics.providers.*;
 import pl.edu.agh.kafkaload.util.TimingUtil;
 
 import javax.management.MBeanServerConnection;
@@ -30,7 +28,7 @@ public class KafkaMetrics implements Runnable {
         }
 
         List<String> names = new ArrayList<>(providers.size() + 1);
-        names.add("time_s");
+        names.add("time (s)");
         providers.forEach(provider -> names.add(provider.getName()));
 
         for (MetricsListener listener : listeners) {
@@ -45,7 +43,7 @@ public class KafkaMetrics implements Runnable {
                         "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec",
                         "Count",
                         connection,
-                        "input_MB/s",
+                        "input (MB/s)",
                         Unit.BYTE,
                         Unit.MEGABYTE
                 ),
@@ -54,7 +52,7 @@ public class KafkaMetrics implements Runnable {
                         "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec",
                         "Count",
                         connection,
-                        "output_MB/s",
+                        "output (MB/s)",
                         Unit.BYTE,
                         Unit.MEGABYTE
                 ),
@@ -63,9 +61,62 @@ public class KafkaMetrics implements Runnable {
                         "kafka.network:type=RequestChannel,name=RequestQueueSize",
                         "Value",
                         connection,
-                        "request_queue_size",
+                        "request queue size",
                         Unit.UNIT,
                         Unit.UNIT
+                ),
+
+                new MeanReverseCalculateMetricProvider(
+                        "kafka.network:type=RequestMetrics,name=LocalTimeMs,request=Produce",
+                        "Count",
+                        "Mean",
+                        connection,
+                        "processing time (ms)",
+                        Unit.MILLISECOND,
+                        Unit.MILLISECOND
+                ),
+
+                new MeanReverseCalculateMetricProvider(
+                        "kafka.network:type=RequestMetrics,name=RequestQueueTimeMs,request=Produce",
+                        "Count",
+                        "Mean",
+                        connection,
+                        "queue wait time (ms)",
+                        Unit.MILLISECOND,
+                        Unit.MILLISECOND
+                ),
+
+                new MeanReverseCalculateMetricProvider(
+                        "kafka.log:type=LogFlushStats,name=LogFlushRateAndTimeMs",
+                        "Count",
+                        "Mean",
+                        connection,
+                        "log flush time (0.1s)",
+                        Unit.MILLISECOND,
+                        Unit.DECY_SECOND
+                ),
+
+                new RateMetricProvider(
+                        "kafka.log:type=LogFlushStats,name=LogFlushRateAndTimeMs",
+                        "Count",
+                        connection,
+                        "log flush rate (1/s)",
+                        Unit.UNIT,
+                        Unit.UNIT
+                ),
+
+                new RateMetricProvider(
+                        "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec",
+                        "Count",
+                        connection,
+                        "messages in (0.5k/s)",
+                        Unit.UNIT,
+                        Unit.HALF_KILO
+                ),
+
+                new ErrorRateProvider(
+                        "error rate (1/s)",
+                        connection
                 )
         );
     }

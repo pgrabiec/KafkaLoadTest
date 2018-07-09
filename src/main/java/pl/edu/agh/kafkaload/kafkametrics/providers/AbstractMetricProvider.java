@@ -30,11 +30,19 @@ public abstract class AbstractMetricProvider implements MetricProvider {
 
     @Override
     public final double getCurrentValue() throws Exception {
-        return fetchCurrentValue() * Unit.getScaleFactor(sourceUnit, targetUnit);
+        try {
+            return fetchCurrentValue() * Unit.getScaleFactor(sourceUnit, targetUnit);
+        } catch (InstanceNotFoundException ex) {
+            return 0.0;
+        }
     }
 
     protected AttributeList getAttributes() throws InstanceNotFoundException, IOException, ReflectionException {
         return connection.getAttributes(objectName, attributes);
+    }
+
+    MBeanServerConnection getConnection() {
+        return connection;
     }
 
     abstract double fetchCurrentValue() throws Exception;

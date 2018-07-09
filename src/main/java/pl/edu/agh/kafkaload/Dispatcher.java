@@ -25,7 +25,6 @@ public class Dispatcher {
     public static void main(String[] args) throws IOException, InterruptedException {
         ConfigurationReader configurationReader = new ConfigurationReader();
         TestConfiguration conf = configurationReader.readConfiguration("kafkaload.conf");
-        final String message = new String(new byte[conf.getMessageSize()]);
         final String outputFile = conf.getOutputFilePattern()
                 + "_"
                 + new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date())
@@ -43,15 +42,16 @@ public class Dispatcher {
         KafkaMetrics kafkaMetrics = new KafkaMetrics(
                 Arrays.asList(
                         new ConsolePrintMetricsListener(),
-                        new CsvSaveMetricsListener(outputFile, " "),
+                        new CsvSaveMetricsListener(outputFile, ";"),
                         new ChartMetricsListener()
                 ),
                 conf.getResolution()
         );
-
         long startTime = TimingUtil.getMillis();
         executor.submit(kafkaMetrics);
 
+        // Prepare for scheduling workers change events
+        final String message = new String(new byte[conf.getMessageSize()]);
         Supplier<Runnable> producerSupplier = () -> new Producer(
                 new ProducerProperties(conf.getKafkaServers()),
                 message
@@ -61,6 +61,10 @@ public class Dispatcher {
                 1000
         );
 
+        scheduleWorkers(changes, executor, startTime, producerSupplier, consumerSupplier);
+    }
+
+    private static void scheduleWorkers(List<ConfigurationChange> changes, ExecutorService executor, long startTime, Supplier<Runnable> producerSupplier, Supplier<Runnable> consumerSupplier) {
         ThreadsManager producers = new ThreadsManager(executor);
         ThreadsManager consumers = new ThreadsManager(executor);
 

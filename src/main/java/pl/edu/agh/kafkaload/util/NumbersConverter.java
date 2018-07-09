@@ -15,6 +15,7 @@ public class NumbersConverter {
             return (double) number;
 
         } else {
+            System.out.println("Unknown attribute type: " + number.getClass().getName());
             return null;
         }
     }
