@@ -9,7 +9,7 @@ import pl.edu.agh.kafkaload.kafkametrics.KafkaMetrics;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.ChartMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.ConsolePrintMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.CsvSaveMetricsListener;
-import pl.edu.agh.kafkaload.kafkametrics.providers.Unit;
+import pl.edu.agh.kafkaload.util.Unit;
 import pl.edu.agh.kafkaload.producer.Producer;
 import pl.edu.agh.kafkaload.producer.ProducerProperties;
 import pl.edu.agh.kafkaload.util.TimingUtil;

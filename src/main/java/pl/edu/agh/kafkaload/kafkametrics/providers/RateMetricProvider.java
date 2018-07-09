@@ -2,8 +2,10 @@ package pl.edu.agh.kafkaload.kafkametrics.providers;
 
 import pl.edu.agh.kafkaload.util.NumbersConverter;
 import pl.edu.agh.kafkaload.util.TimingUtil;
+import pl.edu.agh.kafkaload.util.Unit;
 
 import javax.management.Attribute;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;
 
@@ -41,7 +43,11 @@ public class RateMetricProvider extends AbstractMetricProvider {
     }
 
     private double getCurrentCount() throws Exception {
-        Attribute attribute = (Attribute) getAttributes().get(0);
-        return NumbersConverter.convert(attribute.getValue());
+        try {
+            Attribute attribute = (Attribute) getAttributes().get(0);
+            return NumbersConverter.convert(attribute.getValue());
+        } catch (InstanceNotFoundException ex) {
+            return 0.0;
+        }
     }
 }

@@ -1,6 +1,7 @@
 package pl.edu.agh.kafkaload.kafkametrics.providers;
 
 import pl.edu.agh.kafkaload.kafkametrics.MetricProvider;
+import pl.edu.agh.kafkaload.util.Unit;
 
 import javax.management.*;
 import java.io.IOException;

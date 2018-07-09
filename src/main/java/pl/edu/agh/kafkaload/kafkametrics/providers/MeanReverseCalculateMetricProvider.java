@@ -1,11 +1,9 @@
 package pl.edu.agh.kafkaload.kafkametrics.providers;
 
 import pl.edu.agh.kafkaload.util.NumbersConverter;
+import pl.edu.agh.kafkaload.util.Unit;
 
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.MBeanServerConnection;
-import javax.management.MalformedObjectNameException;
+import javax.management.*;
 
 public class MeanReverseCalculateMetricProvider extends AbstractMetricProvider {
     private double lastCount;
@@ -36,8 +34,13 @@ public class MeanReverseCalculateMetricProvider extends AbstractMetricProvider {
 
     @Override
     public void start() throws Exception {
-        AttributeList attributes = getAttributes();
-        lastCount = NumbersConverter.convert(((Attribute) attributes.get(0)).getValue());
-        lastMean = NumbersConverter.convert(((Attribute) attributes.get(1)).getValue());
+        try {
+            AttributeList attributes = getAttributes();
+            lastCount = NumbersConverter.convert(((Attribute) attributes.get(0)).getValue());
+            lastMean = NumbersConverter.convert(((Attribute) attributes.get(1)).getValue());
+        } catch (InstanceNotFoundException ex) {
+            lastCount = 0.0;
+            lastMean = 0.0;
+        }
     }
 }

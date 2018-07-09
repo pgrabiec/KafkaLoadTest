@@ -3,8 +3,10 @@ package pl.edu.agh.kafkaload.kafkametrics.providers;
 import pl.edu.agh.kafkaload.kafkametrics.MetricProvider;
 import pl.edu.agh.kafkaload.util.NumbersConverter;
 import pl.edu.agh.kafkaload.util.TimingUtil;
+import pl.edu.agh.kafkaload.util.Unit;
 
 import javax.management.Attribute;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import java.util.List;
@@ -23,24 +25,28 @@ public class ErrorRateProvider implements MetricProvider {
     }
 
     private double getCount() throws Exception {
-        Set<ObjectName> names = connection.queryNames(
-                new ObjectName("kafka.network:type=RequestMetrics,name=ErrorsPerSec,*"),
-                null
-        );
+        try {
+            Set<ObjectName> names = connection.queryNames(
+                    new ObjectName("kafka.network:type=RequestMetrics,name=ErrorsPerSec,*"),
+                    null
+            );
 
-        List<ObjectName> errorObjectNames = names.stream()
-                .filter(name -> !"NONE".equalsIgnoreCase(name.getKeyProperty("error")))
-                .collect(Collectors.toList());
+            List<ObjectName> errorObjectNames = names.stream()
+                    .filter(name -> !"NONE".equalsIgnoreCase(name.getKeyProperty("error")))
+                    .collect(Collectors.toList());
 
-        double count = 0.0;
+            double count = 0.0;
 
-        for (ObjectName errorObjectName : errorObjectNames) {
-            Attribute attribute = (Attribute) connection.getAttributes(errorObjectName, new String[]{"Count"}).get(0);
-            double objectCount = NumbersConverter.convert(attribute.getValue());
-            count += objectCount;
+            for (ObjectName errorObjectName : errorObjectNames) {
+                Attribute attribute = (Attribute) connection.getAttributes(errorObjectName, new String[]{"Count"}).get(0);
+                double objectCount = NumbersConverter.convert(attribute.getValue());
+                count += objectCount;
+            }
+
+            return count;
+        } catch (InstanceNotFoundException ex) {
+            return 0.0;
         }
-
-        return count;
     }
 
     @Override

@@ -2,6 +2,7 @@ package pl.edu.agh.kafkaload.kafkametrics;
 
 import pl.edu.agh.kafkaload.kafkametrics.providers.*;
 import pl.edu.agh.kafkaload.util.TimingUtil;
+import pl.edu.agh.kafkaload.util.Unit;
 
 import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;

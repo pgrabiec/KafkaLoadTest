@@ -1,7 +1,5 @@
 package pl.edu.agh.kafkaload.util;
 
-import pl.edu.agh.kafkaload.kafkametrics.providers.Unit;
-
 public class TimingUtil {
     private TimingUtil() {
     }

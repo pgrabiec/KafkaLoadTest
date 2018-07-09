@@ -1,6 +1,7 @@
 package pl.edu.agh.kafkaload.kafkametrics.providers;
 
 import pl.edu.agh.kafkaload.util.NumbersConverter;
+import pl.edu.agh.kafkaload.util.Unit;
 
 import javax.management.Attribute;
 import javax.management.MBeanServerConnection;

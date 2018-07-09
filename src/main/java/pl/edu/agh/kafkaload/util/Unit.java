@@ -1,4 +1,4 @@
-package pl.edu.agh.kafkaload.kafkametrics.providers;
+package pl.edu.agh.kafkaload.util;
 
 public enum Unit {
     UNIT(1),
