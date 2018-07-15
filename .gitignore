@@ -20,3 +20,5 @@ hs_err_pid*
 
 scripts/
 data.csv
+results
+test/results
