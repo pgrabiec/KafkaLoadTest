@@ -1,20 +1,29 @@
 package pl.edu.agh.kafkaload.kafkametrics.listeners;
 
+import org.knowm.xchart.BitmapEncoder;
 import org.knowm.xchart.QuickChart;
 import org.knowm.xchart.SwingWrapper;
 import org.knowm.xchart.XYChart;
 import pl.edu.agh.kafkaload.kafkametrics.MetricsListener;
 
+import javax.swing.*;
+import java.awt.*;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
 public class ChartMetricsListener implements MetricsListener {
+    private final String outputFileNameWithoutExtension;
     private XYChart chart;
-    private int size;
     private SwingWrapper<XYChart> wrapper;
+    private JFrame frame;
     private double[] xData;
     private double[][] yData;
     private String[] series;
+
+    public ChartMetricsListener(String outputFileNameWithoutExtension) {
+        this.outputFileNameWithoutExtension = outputFileNameWithoutExtension;
+    }
 
 
     @Override
@@ -25,7 +34,7 @@ public class ChartMetricsListener implements MetricsListener {
             namesWithoutTime.add(names.get(i));
         }
 
-        size = names.size() - 1;
+        int size = names.size() - 1;
         xData = new double[] {0.0};
         yData = new double[size][1];
         for (int i = 0; i < yData.length; i++) {
@@ -44,7 +53,7 @@ public class ChartMetricsListener implements MetricsListener {
 
         // Show it
         wrapper = new SwingWrapper<>(chart);
-        wrapper.displayChart();
+        this.frame = wrapper.displayChart();
     }
 
     @Override
@@ -60,6 +69,35 @@ public class ChartMetricsListener implements MetricsListener {
             chart.updateXYSeries(series[i], xData, yData[i], null);
         }
         wrapper.repaintChart();
+    }
+
+    @Override
+    public void close() {
+        Dimension lastDimension = null;
+        try {
+            if (frame != null) {
+                lastDimension = frame.getSize();
+                DisplayMode displayMode = GraphicsEnvironment
+                        .getLocalGraphicsEnvironment()
+                        .getDefaultScreenDevice()
+                        .getDisplayMode();
+
+                frame.setSize(new Dimension(displayMode.getWidth(), displayMode.getHeight()));
+
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            BitmapEncoder.saveBitmap(chart, outputFileNameWithoutExtension + ".png", BitmapEncoder.BitmapFormat.PNG);
+            System.out.println("Metrics chart saved");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (frame != null && lastDimension != null) {
+            frame.setSize(lastDimension);
+        }
     }
 
     private void append(double[][] table, List<Double> values) {

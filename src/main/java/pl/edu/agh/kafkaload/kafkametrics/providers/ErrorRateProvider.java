@@ -43,7 +43,7 @@ public class ErrorRateProvider implements MetricProvider {
                 count += objectCount;
             }
 
-            return count;
+            return count * 10.0;
         } catch (InstanceNotFoundException ex) {
             return 0.0;
         }

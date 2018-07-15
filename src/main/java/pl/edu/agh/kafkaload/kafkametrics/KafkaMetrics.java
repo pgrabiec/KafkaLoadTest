@@ -1,6 +1,9 @@
 package pl.edu.agh.kafkaload.kafkametrics;
 
-import pl.edu.agh.kafkaload.kafkametrics.providers.*;
+import pl.edu.agh.kafkaload.kafkametrics.providers.ErrorRateProvider;
+import pl.edu.agh.kafkaload.kafkametrics.providers.MeanReverseCalculateMetricProvider;
+import pl.edu.agh.kafkaload.kafkametrics.providers.RateMetricProvider;
+import pl.edu.agh.kafkaload.kafkametrics.providers.SingleValueMetricProvider;
 import pl.edu.agh.kafkaload.util.TimingUtil;
 import pl.edu.agh.kafkaload.util.Unit;
 
@@ -13,14 +16,26 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class KafkaMetrics implements Runnable {
+    private final AtomicBoolean connected = new AtomicBoolean(false);
+    private final Lock connectionLock = new ReentrantLock();
+    private final Condition connectedCondition = connectionLock.newCondition();
     private final List<MetricsListener> listeners;
     private final long resolutionMilliseconds;
+    private final AtomicInteger consumersCount;
+    private final AtomicInteger producersCount;
 
-    public KafkaMetrics(List<MetricsListener> listeners, long resolutionMilliseconds) {
+    public KafkaMetrics(List<MetricsListener> listeners, long resolutionMilliseconds, AtomicInteger consumersCount, AtomicInteger producersCount) {
         this.listeners = listeners;
         this.resolutionMilliseconds = resolutionMilliseconds;
+        this.consumersCount = consumersCount;
+        this.producersCount = producersCount;
     }
 
     private void beforeExecution(List<MetricProvider> providers) throws Exception {
@@ -72,9 +87,9 @@ public class KafkaMetrics implements Runnable {
                         "Count",
                         "Mean",
                         connection,
-                        "processing time (ms)",
+                        "processing time (0.1 s)",
                         Unit.MILLISECOND,
-                        Unit.MILLISECOND
+                        Unit.DECY_SECOND
                 ),
 
                 new MeanReverseCalculateMetricProvider(
@@ -82,9 +97,9 @@ public class KafkaMetrics implements Runnable {
                         "Count",
                         "Mean",
                         connection,
-                        "queue wait time (ms)",
+                        "queue wait time (0.1s)",
                         Unit.MILLISECOND,
-                        Unit.MILLISECOND
+                        Unit.DECY_SECOND
                 ),
 
                 new MeanReverseCalculateMetricProvider(
@@ -116,9 +131,33 @@ public class KafkaMetrics implements Runnable {
                 ),
 
                 new ErrorRateProvider(
-                        "error rate (1/s)",
+                        "error rate (0.1/s)",
                         connection
-                )
+                ),
+
+                new MetricProvider() {
+                    @Override
+                    public double getCurrentValue() {
+                        return producersCount.get();
+                    }
+
+                    @Override
+                    public String getName() {
+                        return "producers";
+                    }
+                },
+
+                new MetricProvider() {
+                    @Override
+                    public double getCurrentValue() throws Exception {
+                        return consumersCount.get();
+                    }
+
+                    @Override
+                    public String getName() {
+                        return "consumers";
+                    }
+                }
         );
     }
 
@@ -128,13 +167,23 @@ public class KafkaMetrics implements Runnable {
         try {
             JMXServiceURL url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:9999/jmxrmi");
 
-            jmxc = JMXConnectorFactory.connect(url, null);
+            System.out.println("[...] Connecting with JMX server");
+            while (jmxc == null) {
+                try {
+                    jmxc = JMXConnectorFactory.connect(url, null);
+                } catch (IOException ex) {
+                    Thread.sleep(50);
+                }
+            }
+            System.out.println("[OK] Connected with JMX server");
 
             MBeanServerConnection connection = jmxc.getMBeanServerConnection();
 
             List<MetricProvider> providers = getProviders(connection);
 
             beforeExecution(providers);
+
+            connected();
 
             long startTime = TimingUtil.getMillis();
             long iteration = 1;
@@ -175,6 +224,29 @@ public class KafkaMetrics implements Runnable {
             }
         }
 
+        listeners.forEach(MetricsListener::close);
+
         System.out.println("Metrics finished");
+    }
+
+    private void connected() {
+        connectionLock.lock();
+        try {
+            connected.set(true);
+            connectedCondition.signalAll();
+        } finally {
+            connectionLock.unlock();
+        }
+    }
+
+    public void blockUntilConnected() throws InterruptedException {
+        connectionLock.lock();
+        try {
+            while (!connected.get()) {
+                connectedCondition.await();
+            }
+        } finally {
+            connectionLock.unlock();
+        }
     }
 }

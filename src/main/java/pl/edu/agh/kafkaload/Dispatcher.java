@@ -9,26 +9,44 @@ import pl.edu.agh.kafkaload.kafkametrics.KafkaMetrics;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.ChartMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.ConsolePrintMetricsListener;
 import pl.edu.agh.kafkaload.kafkametrics.listeners.CsvSaveMetricsListener;
-import pl.edu.agh.kafkaload.util.Unit;
 import pl.edu.agh.kafkaload.producer.Producer;
 import pl.edu.agh.kafkaload.producer.ProducerProperties;
 import pl.edu.agh.kafkaload.util.TimingUtil;
+import pl.edu.agh.kafkaload.util.Unit;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public class Dispatcher {
+    private static final AtomicInteger consumersCount = new AtomicInteger(0);
+    private static final AtomicInteger producersCount = new AtomicInteger(0);
+
     public static void main(String[] args) throws IOException, InterruptedException {
+
         ConfigurationReader configurationReader = new ConfigurationReader();
         TestConfiguration conf = configurationReader.readConfiguration("kafkaload.conf");
-        final String outputFile = conf.getOutputFilePattern()
-                + "_"
-                + new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date())
-                + ".csv";
+
+        System.out.println("ARGS: " + Arrays.toString(args));
+        String outputFilePattern;
+        if (args.length >= 1) {
+            outputFilePattern = args[0];
+        } else {
+            outputFilePattern = conf.getOutputFilePattern()
+                    + "_" + new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
+        }
+
+        File destinationFile = new File(outputFilePattern);
+        File parentDir = destinationFile.getParentFile();
+        if (parentDir != null) {
+            parentDir.mkdirs();
+        }
 
         // Sort load changes chronologically
         List<ConfigurationChange> changes = new ArrayList<>(conf.getChanges().size());
@@ -42,12 +60,14 @@ public class Dispatcher {
         KafkaMetrics kafkaMetrics = new KafkaMetrics(
                 Arrays.asList(
                         new ConsolePrintMetricsListener(),
-                        new CsvSaveMetricsListener(outputFile, ";"),
-                        new ChartMetricsListener()
+                        new CsvSaveMetricsListener(outputFilePattern, ";"),
+                        new ChartMetricsListener(outputFilePattern)
                 ),
-                conf.getResolution()
+                conf.getResolution(),
+                consumersCount,
+                producersCount
         );
-        long startTime = TimingUtil.getMillis();
+
         executor.submit(kafkaMetrics);
 
         // Prepare for scheduling workers change events
@@ -60,6 +80,9 @@ public class Dispatcher {
                 new ConsumerProperties(conf.getKafkaServers()),
                 1000
         );
+
+        kafkaMetrics.blockUntilConnected();
+        long startTime = TimingUtil.getMillis();
 
         scheduleWorkers(changes, executor, startTime, producerSupplier, consumerSupplier);
     }
@@ -78,6 +101,14 @@ public class Dispatcher {
                         new TimerTask() {
                             @Override
                             public void run() {
+                                switch (change.getType()) {
+                                    case PRODUCER_COUNT:
+                                        producersCount.set(change.getValue());
+                                        break;
+                                    case CONSUMER_COUNT:
+                                        consumersCount.set(change.getValue());
+                                        break;
+                                }
                                 adjustWorkers(producerSupplier, consumerSupplier, producers, consumers, change);
                             }
                         },
@@ -93,6 +124,12 @@ public class Dispatcher {
                     @Override
                     public void run() {
                         executor.shutdownNow();
+                        try {
+                            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        System.exit(0);
                     }
                 },
                 new Date(lastTime + 500)

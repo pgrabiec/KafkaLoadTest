@@ -6,4 +6,6 @@ public interface MetricsListener {
     void metricsInit(List<String> names);
 
     void metricsUpdate(List<Double> values);
+
+    default void close() {};
 }

@@ -14,9 +14,9 @@ public class CsvSaveMetricsListener implements MetricsListener {
     private final Writer writer;
     private final String separator;
 
-    public CsvSaveMetricsListener(String fileName, String separator) throws IOException {
+    public CsvSaveMetricsListener(String fileNameWithoutExtension, String separator) throws IOException {
         this.writer = new BufferedWriter(
-                new FileWriter(fileName)
+                new FileWriter(fileNameWithoutExtension + ".csv")
         );
         this.separator = separator;
     }
